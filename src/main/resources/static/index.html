@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Co-Code Live Board</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; background-color: #1e1e1e; color: #fff; }
+        .container { display: flex; gap: 20px; }
+        .editor-area { flex: 3; }
+        .sidebar { flex: 1; background-color: #2d2d2d; padding: 15px; border-radius: 5px; border: 1px solid #555; height: 400px; }
+        textarea { width: 100%; height: 370px; background-color: #2d2d2d; color: #a9b7c6; font-family: monospace; font-size: 16px; padding: 15px; border-radius: 5px; border: 1px solid #555; box-sizing: border-box; }
+        input { padding: 10px; font-size: 14px; margin-right: 10px; border-radius: 3px; border: none; }
+        button { padding: 10px 20px; font-size: 14px; background-color: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        ul { list-style-type: none; padding: 0; }
+        li { padding: 8px; background-color: #3d3d3d; margin-bottom: 5px; border-radius: 3px; color: #4CAF50; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h2>🚀 Co-Code Collaborative Live Board</h2>
+<div style="margin-bottom: 20px;">
+    <input type="text" id="roomId" value="Room-101" placeholder="Enter Room ID">
+    <input type="text" id="username" placeholder="Enter Your Name">
+    <button onclick="connect()">Connect to Room</button>
+    <button onclick="saveCodeToServer()" style="background-color: #008CBA;">💾 Save Code to Disk</button>
+</div>
+
+<div class="container">
+    <div class="editor-area">
+        <textarea id="codeEditor" placeholder="Connect to a room and start coding here..." oninput="sendCodeUpdate()" disabled></textarea>
+    </div>
+    <div class="sidebar">
+        <h3>👥 Active Developers (<span id="userCount">0</span>)</h3>
+        <ul id="userList">
+            <li>No one connected yet</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    let stompClient = null;
+    let roomId = "";
+    let username = "";
+
+    function connect() {
+        roomId = document.getElementById('roomId').value;
+        username = document.getElementById('username').value || "Anonymous_" + Math.floor(Math.random() * 100);
+        document.getElementById('username').value = username;
+
+        const socket = new SockJS('/co-code-socket');
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+            document.getElementById('codeEditor').disabled = false;
+
+            // 1. Subscribe to the code sync channel
+            stompClient.subscribe('/topic/code', function (response) {
+                const payload = JSON.parse(response.body);
+                if (payload.senderId !== username && payload.roomId === roomId) {
+                    document.getElementById('codeEditor').value = payload.codeContent;
+                }
+            });
+
+            // 2. Subscribe to the active users channel
+            stompClient.subscribe('/topic/users', function (response) {
+                const usersList = JSON.parse(response.body);
+                const userListUI = document.getElementById('userList');
+                const userCountUI = document.getElementById('userCount');
+
+                userListUI.innerHTML = ""; // Clear old visual list
+                userCountUI.innerText = usersList.length; // Update counter number
+
+                usersList.forEach(user => {
+                    const li = document.createElement('li');
+                    li.innerText = "💻 " + user;
+                    userListUI.appendChild(li);
+                });
+            });
+
+            // 3. Send a message telling the backend server that we just joined!
+            stompClient.send("/app/join-room", {}, JSON.stringify({
+                roomId: roomId,
+                username: username
+            }));
+        });
+    }
+
+    function saveCodeToServer() {
+            const currentRoom = document.getElementById('roomId').value;
+            const currentContent = document.getElementById('codeEditor').value;
+
+            fetch('/api/rooms/' + currentRoom + '/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: currentContent
+            })
+            .then(response => response.text())
+            .then(message => {
+                alert(message); // Pop up a native browser success notification
+            })
+            .catch(err => {
+                console.error("Error running save routine: ", err);
+                alert("Failed to reach save engine.");
+            });
+        }
+</script>
+</body>
+</html>
