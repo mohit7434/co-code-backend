@@ -4,6 +4,7 @@ import com.cocode.model.CodeUpdatePayload;
 import com.cocode.model.UserJoinPayload;
 import com.cocode.service.RoomManagerService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.web.bind.annotation.*; // 🌟 Import web annotations
@@ -34,7 +35,10 @@ public class CodeBoardController {
 
     // 🌟 NEW REST ENDPOINT: Listens for a browser HTTP POST to save the current text state
     @PostMapping("/api/rooms/{roomId}/save")
-    public String saveCode(@PathVariable String roomId, @RequestBody String codeContent) {
-        return roomManagerService.saveRoomCodeToDisk(roomId, codeContent);
+    public ResponseEntity<String> saveRoomCode(@PathVariable String roomId, @RequestBody String codeContent) {
+        // 🪝 Route the payload straight to the database save engine!
+        String statusMessage = roomManagerService.saveRoomCodeToDisk(roomId, codeContent);
+
+        return ResponseEntity.ok(statusMessage);
     }
 }

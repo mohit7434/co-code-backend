@@ -1,6 +1,9 @@
 package com.cocode.service;
 
+import com.cocode.Repository.RoomRepository;
+import com.cocode.model.RoomEntity;
 import com.cocode.model.RoomTracker;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,8 +11,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+
 @Service
 public class RoomManagerService {
+
+    @Autowired
+    private RoomRepository roomRepository;
 
     public boolean validateAndAddUser(String roomId, String username) {
         if (username == null || username.trim().isEmpty()) return false;
@@ -24,18 +31,16 @@ public class RoomManagerService {
     // 🌟 NEW METHOD: Writes the real-time code buffer directly to a physical file on disk
     public String saveRoomCodeToDisk(String roomId, String codeContent) {
         try {
-            // Create a clean, unique filename based on the Room ID
-            String fileName = "saved_" + roomId + ".txt";
-            Path path = Paths.get(fileName);
+            // 1. Package the incoming data payload straight into our Database Entity class
+            RoomEntity roomEntity = new RoomEntity(roomId, codeContent);
 
-            // Write the string characters into bytes on your hard drive
-            Files.writeString(path, codeContent);
+            // 2. Fire the object into the database via the JPA Repository
+            roomRepository.save(roomEntity);
 
-            System.out.println("💾 Absolute path success! Saved to: " + path.toAbsolutePath());
-            return "Successfully saved to " + fileName;
-        } catch (IOException e) {
-            System.err.println("❌ Failed to write file to disk: " + e.getMessage());
-            return "Error saving file: " + e.getMessage();
+            return "Successfully saved Room [" + roomId + "] to the H2 Database!";
+        } catch (Exception e) {
+            // Even with databases, unexpected connection or lock issues can happen!
+            return "Error saving to database: " + e.getMessage();
         }
     }
 }
